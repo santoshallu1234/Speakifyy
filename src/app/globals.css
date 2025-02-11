@@ -11,7 +11,7 @@ body {
   src: url('../lib/Fontspring-DEMO-pgf-now-regular.otf'); /*URL to font*/
 }
 
-h1,h2,h3,h4,h5,p{
+h1,h2,h3,h4,h5,p,.yo{
   font-family: "Pgf";
   letter-spacing: 1px;
   
