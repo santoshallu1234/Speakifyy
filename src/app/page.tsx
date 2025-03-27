@@ -13,11 +13,13 @@ export default function Home() {
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedLang, setSelectedLang] = useState<string>("")  // Add this state
 
   const handleTranslate = async (text: string, lang: string) => {
     setIsLoading(true)
     setError(null)
     setResult(null)
+    setSelectedLang(lang)  // Store the selected language
 
     try {
       const response = await axios.get(`https://speakify-b8jdydwma-santoshallu1234s-projects.vercel.app/convert?text=${encodeURIComponent(text)}&lang=${lang}`)
@@ -45,7 +47,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-black text-white">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto space-y-8 ">
+        <div className="max-w-2xl mx-auto space-y-8">
           <TranslationForm onTranslate={handleTranslate} isLoading={isLoading} />
           {error && (
             <Alert variant="destructive">
@@ -60,6 +62,7 @@ export default function Home() {
               translatedText={result.translated_text}
               detectedLanguage={result.detected_language}
               rawResponse={result.raw_response}
+              targetLanguage={selectedLang}  // Pass the stored language
             />
           )}
         </div>
@@ -68,4 +71,6 @@ export default function Home() {
     </div>
   )
 }
+
+
 
