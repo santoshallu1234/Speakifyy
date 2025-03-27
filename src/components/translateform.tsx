@@ -21,39 +21,38 @@ export default function TranslationForm({
   }
 
   const handleVoiceInput = () => {
-    if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-      // Use the standard SpeechRecognition if available, fallback to webkit
-      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = "en-US";
-
-      recognition.onstart = () => {
-        // Optional: Show some UI indication that recording has started
-        console.log("Speech recognition started");
-      };
-
-      recognition.onerror = (event: any) => {
-        if (event.error === 'not-allowed') {
-          alert("Please enable microphone access to use voice input");
-        } else {
-          alert("Error occurred during voice recognition. Please try again.");
-        }
-      };
-
-      recognition.onend = () => {
-        // Optional: Show some UI indication that recording has ended
-        console.log("Speech recognition ended");
-      };
-
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setText(transcript);
-      };
-
+    // Get the correct Speech Recognition API
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (SpeechRecognitionAPI) {
       try {
+        const recognition = new SpeechRecognitionAPI();
+        
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = "en-US";
+
+        recognition.onstart = () => {
+          console.log("Speech recognition started");
+        };
+
+        recognition.onerror = (event: any) => {
+          if (event.error === 'not-allowed') {
+            alert("Please enable microphone access to use voice input");
+          } else {
+            alert("Error occurred during voice recognition. Please try again.");
+          }
+        };
+
+        recognition.onend = () => {
+          console.log("Speech recognition ended");
+        };
+
+        recognition.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setText(transcript);
+        };
+
         recognition.start();
       } catch (err) {
         console.error("Speech recognition error:", err);
