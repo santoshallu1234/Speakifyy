@@ -25,7 +25,7 @@ export default function QuizSummary({
   language = "English",
   level = "beginner"
 }: QuizSummaryProps) {
-  // Helper function to decode and sanitize text
+  // Helper function to decode and sanitize tex
   const sanitizeText = (text: string) => {
     try {
       const decoded = decodeURIComponent(text);
@@ -34,7 +34,7 @@ export default function QuizSummary({
       return text;
     }
   };
-
+  const abcd = 12 ;
   // Calculate percentage score (assuming max score is 100)
   const maxScore = 100;
   const percentage = Math.round((score / maxScore) * 100);
