@@ -2,14 +2,14 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/use-toast"
-import { Copy, Share, Volume2 } from "lucide-react"
+import { Copy, Share, Volume2, ChevronDown, ChevronUp, Square } from "lucide-react"
 
 interface TranslationResultProps {
   originalText: string
   translatedText: string
   detectedLanguage: string
   rawResponse: string
-  targetLanguage: string // Add this prop
+  targetLanguage: string
   onFavorite?: () => void
   isFavorite?: boolean
 }
@@ -19,16 +19,48 @@ export default function TranslationResult({
   translatedText,
   detectedLanguage,
   rawResponse,
-  targetLanguage, // Add this prop
+  targetLanguage,
   onFavorite,
   isFavorite
 }: TranslationResultProps) {
+  const [showRawResponse, setShowRawResponse] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // Format the raw response for display
+  const formatRawResponse = () => {
+    try {
+      // First try to parse as JSON
+      const parsed = JSON.parse(rawResponse);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      // If not JSON, return as is
+      return rawResponse;
+    }
+  };
+
   // Load available voices when component mounts
   useEffect(() => {
     const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
+      const availableVoices = window.speechSynthesis.getVoices();
+      setVoices(availableVoices);
+      
+      // Debug voice information
+      console.log('=== Voice Debug Information ===');
+      console.log('Total voices available:', availableVoices.length);
+      console.log('Voices by language:');
+      const voicesByLang = availableVoices.reduce((acc, voice) => {
+        const lang = voice.lang.split('-')[0];
+        if (!acc[lang]) acc[lang] = [];
+        acc[lang].push({
+          name: voice.name,
+          lang: voice.lang,
+          default: voice.default,
+          localService: voice.localService
+        });
+        return acc;
+      }, {} as Record<string, any[]>);
+      console.log(voicesByLang);
     };
 
     loadVoices();
@@ -39,79 +71,27 @@ export default function TranslationResult({
     };
   }, []);
 
-  useEffect(() => {
-    const debugVoices = () => {
-      const voices = window.speechSynthesis.getVoices();
-      console.log('=== Voice Debug Information ===');
-      console.log('Total voices available:', voices.length);
-      console.log('Voices by language:');
-      const voicesByLang = voices.reduce((acc, voice) => {
-        const lang = voice.lang.split('-')[0];
-        if (!acc[lang]) acc[lang] = [];
-        acc[lang].push({
-          name: voice.name,
-          lang: voice.lang,
-          default: voice.default,
-          localService: voice.localService
-        });
-        return acc;
-      }, {});
-      console.log(voicesByLang);
-    };
-
-    // Check voices on mount and when voices change
-    debugVoices();
-    window.speechSynthesis.onvoiceschanged = debugVoices;
-
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    const voices = window.speechSynthesis.getVoices();
-    console.log('Available voices:', voices.map(voice => ({
-      name: voice.name,
-      lang: voice.lang,
-      default: voice.default
-    })));
-  }, [voices]);
-
   // Language code mapping for speech synthesis with multiple fallbacks
   const languageCodeMap: { [key: string]: string[] } = {
-    'te': ['te-IN', 'te', 'en-IN', 'en-US'], // Telugu with fallbacks
-    'hi': ['hi-IN', 'hi', 'en-IN', 'en-US'], // Hindi
-    'sa': ['sa-IN', 'hi-IN', 'en-IN', 'en-US'], // Sanskrit
-    'bn': ['bn-IN', 'bn', 'en-IN', 'en-US'], // Bengali
-    'ta': ['ta-IN', 'ta', 'en-IN', 'en-US'], // Tamil
-    'mr': ['mr-IN', 'hi-IN', 'en-IN', 'en-US'], // Marathi
-    'es': ['es-ES', 'es', 'en-US'],
-    'fr': ['fr-FR', 'fr', 'en-US'],
+    'english': ['en-US', 'en-GB', 'en'],
+    'arabic': ['ar-SA', 'ar', 'en-US'],  // Added Arabic support
+    'telugu': ['te-IN', 'te', 'en-IN', 'en-US'],
+    'hindi': ['hi-IN', 'hi', 'en-IN', 'en-US'],
+    'sanskrit': ['sa-IN', 'hi-IN', 'en-IN', 'en-US'],
+    'bn': ['bn-IN', 'bn', 'en-IN', 'en-US'],
+    'ta': ['ta-IN', 'ta', 'en-IN', 'en-US'],
+    'marathi': ['mr-IN', 'hi-IN', 'en-IN', 'en-US'],
+    'es': ['es-ES', 'es-MX', 'es', 'en-US'],
+    'french': ['fr-FR', 'fr', 'en-US'],
     'de': ['de-DE', 'de', 'en-US'],
-    'it': ['it-IT', 'it', 'en-US'],
     'ja': ['ja-JP', 'ja', 'en-US'],
-    'en': ['en-US', 'en-GB', 'en'],
   };
 
-  const findBestVoice = (langCode: string, availableVoices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null => {
-    // Get array of possible language codes for the given language
-    const possibleCodes = languageCodeMap[langCode] || ['en-US'];
-    
-    // Try each possible code in order
-    for (const code of possibleCodes) {
-      // Try exact match first
-      const exactMatch = availableVoices.find(voice => voice.lang.toLowerCase() === code.toLowerCase());
-      if (exactMatch) return exactMatch;
-
-      // Try starts with match
-      const startsWithMatch = availableVoices.find(voice => 
-        voice.lang.toLowerCase().startsWith(code.split('-')[0].toLowerCase())
-      );
-      if (startsWithMatch) return startsWithMatch;
+  const stopSpeaking = () => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
     }
-
-    // Final fallback: return any available voice
-    return availableVoices[0] || null;
   };
 
   const speakText = async (text: string, isOriginal: boolean = false) => {
@@ -126,52 +106,43 @@ export default function TranslationResult({
 
     try {
       // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
+      stopSpeaking();
+      setIsSpeaking(true);
 
       // Create utterance
       const utterance = new SpeechSynthesisUtterance(text);
 
       // Get language code
       const langCode = isOriginal ? detectedLanguage : targetLanguage;
+      console.log('Speaking with language code:', langCode);
 
       // Wait for voices to load if they haven't already
-      let voices = window.speechSynthesis.getVoices();
-      if (voices.length === 0) {
+      let availableVoices = window.speechSynthesis.getVoices();
+      if (availableVoices.length === 0) {
         await new Promise<void>((resolve) => {
-          window.speechSynthesis.onvoiceschanged = () => {
-            voices = window.speechSynthesis.getVoices();
+          const voicesChanged = () => {
+            availableVoices = window.speechSynthesis.getVoices();
+            window.speechSynthesis.removeEventListener('voiceschanged', voicesChanged);
             resolve();
           };
+          window.speechSynthesis.addEventListener('voiceschanged', voicesChanged);
         });
       }
 
-      // Log available voices
-      console.log('Available voices:', voices.map(v => ({
-        name: v.name,
-        lang: v.lang
-      })));
+      // Get possible language codes for the current language
+      const possibleCodes = languageCodeMap[langCode.toLowerCase()] || ['en-US'];
+      console.log('Possible language codes:', possibleCodes);
 
       // Try to find a matching voice
-      let matchingVoice = voices.find(v => 
-        v.lang.toLowerCase().startsWith(langCode.toLowerCase()) ||
-        v.lang.toLowerCase().includes(langCode.toLowerCase())
-      );
+      let matchingVoice = null;
+      for (const code of possibleCodes) {
+        // Try exact match first
+        matchingVoice = availableVoices.find(v => v.lang.toLowerCase() === code.toLowerCase());
+        if (matchingVoice) break;
 
-      // If no matching voice found, try fallbacks
-      if (!matchingVoice) {
-        const fallbacks = {
-          'te': ['te-IN', 'hi-IN', 'en-IN'],
-          'hi': ['hi-IN', 'en-IN'],
-          'ta': ['ta-IN', 'en-IN'],
-          'mr': ['mr-IN', 'hi-IN', 'en-IN'],
-          'bn': ['bn-IN', 'en-IN'],
-        };
-
-        const possibleLangs = fallbacks[langCode] || ['en-US'];
-        for (const lang of possibleLangs) {
-          matchingVoice = voices.find(v => v.lang.startsWith(lang));
-          if (matchingVoice) break;
-        }
+        // Try partial match
+        matchingVoice = availableVoices.find(v => v.lang.toLowerCase().startsWith(code.split('-')[0].toLowerCase()));
+        if (matchingVoice) break;
       }
 
       // Set voice and language
@@ -181,12 +152,12 @@ export default function TranslationResult({
         console.log('Using voice:', matchingVoice.name, matchingVoice.lang);
       } else {
         // Fallback to default
-        utterance.lang = 'en-US';
-        console.log('No matching voice found, using default');
+        utterance.lang = possibleCodes[0];
+        console.log('No matching voice found, using default with language:', possibleCodes[0]);
       }
 
       // Configure speech parameters
-      utterance.rate = 0.9;
+      utterance.rate = 1.0;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
@@ -194,19 +165,59 @@ export default function TranslationResult({
       await new Promise((resolve, reject) => {
         utterance.onend = () => {
           console.log('Speech completed successfully');
+          setIsSpeaking(false);
           resolve(true);
         };
 
-        utterance.onerror = (event) => {
+        utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+          setIsSpeaking(false);
           const errorDetails = {
             text,
             language: utterance.lang,
-            voice: utterance.voice?.name,
+            voice: utterance.voice?.name || 'default',
             error: event.error,
-            message: event.message
+            errorMessage: event.message || 'No error message available',
+            timeStamp: event.timeStamp,
+            type: event.type,
+            target: {
+              lang: utterance.lang,
+              pitch: utterance.pitch,
+              rate: utterance.rate,
+              volume: utterance.volume,
+              voice: utterance.voice?.name || 'default'
+            }
           };
-          console.error('Speech synthesis error details:', errorDetails);
-          reject(new Error(`Speech synthesis failed: ${event.error || 'Unknown error'}`));
+          
+
+          
+          let errorMessage = 'Speech synthesis failed';
+          switch (event.error) {
+            case 'canceled':
+              errorMessage = 'Speech was canceled';
+              break;
+            case 'interrupted':
+              errorMessage = 'Speech was interrupted';
+              break;
+            case 'audio-busy':
+              errorMessage = 'Audio system is busy';
+              break;
+            case 'network':
+              errorMessage = 'Network error occurred';
+              break;
+            case 'synthesis-unavailable':
+              errorMessage = 'Speech synthesis is unavailable';
+              break;
+            case 'synthesis-failed':
+              errorMessage = 'Speech synthesis failed';
+              break;
+            case 'language-unavailable':
+              errorMessage = `Voice not available for language: ${utterance.lang}`;
+              break;
+            default:
+              errorMessage = `Speech synthesis error: ${event.error || 'Unknown error'}`;
+          }
+          
+          reject();
         };
 
         // Start speaking
@@ -214,12 +225,13 @@ export default function TranslationResult({
       });
 
     } catch (error) {
-      console.error('Speech synthesis error:', error);
-      toast({
-        title: "Speech Error",
-        description: error instanceof Error ? error.message : "Failed to speak the text. Please try again.",
-        variant: "destructive",
-      });
+      setIsSpeaking(false);
+      //console.error('Speech synthesis error:', error);
+      // toast({
+      //   title: "Speech Error",
+      //   description: error instanceof Error ? error.message : "Failed to speak the text. Please try again.",
+      //   variant: "destructive",
+      // });
     }
   };
 
@@ -249,6 +261,30 @@ export default function TranslationResult({
     }
   };
 
+  // Helper function to clean up the response text
+  const cleanupText = (text: string) => {
+    return text
+      .replace('Here is the translation in Hindi:', '')
+      .replace('The language of the given phrase is English.', '')
+      .trim();
+  };
+
+  // Helper function to extract language from response
+  const getLanguageFromResponse = (text: string) => {
+    const match = text.match(/The language of the given phrase is (\w+)/);
+    return match ? match[1] : detectedLanguage;
+  };
+
+  const displayText = cleanupText(translatedText);
+  const detectedLang = getLanguageFromResponse(detectedLanguage);
+
+  // Cleanup speech synthesis when component unmounts
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
+
   return (
     <Card className="bg-gray-800 text-white">
       <CardHeader>
@@ -256,59 +292,123 @@ export default function TranslationResult({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex justify-between items-start">
-          <div>
+          <div className="flex-1">
             <h3 className="font-semibold">Original Text:</h3>
-            <p>{originalText}</p>
+            <p className="whitespace-pre-wrap">{originalText}</p>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => speakText(originalText, true)}
-          >
-            <Volume2 className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => speakText(originalText, true)}
+              disabled={isSpeaking}
+            >
+              <Volume2 className="h-4 w-4" />
+            </Button>
+            {isSpeaking && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={stopSpeaking}
+                className="text-red-500 hover:text-red-600"
+              >
+                <Square className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
         <div className="flex justify-between items-start">
-          <div>
+          <div className="flex-1">
             <h3 className="font-semibold">Translated Text:</h3>
-            <p>{translatedText}</p>
+            <p className="whitespace-pre-wrap">{displayText}</p>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => speakText(translatedText)}
-          >
-            <Volume2 className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => speakText(displayText)}
+              disabled={isSpeaking}
+            >
+              <Volume2 className="h-4 w-4" />
+            </Button>
+            {isSpeaking && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={stopSpeaking}
+                className="text-red-500 hover:text-red-600"
+              >
+                <Square className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
         <div className="flex justify-between items-start">
           <div>
             <h3 className="font-semibold">Detected Language:</h3>
-            <p>{detectedLanguage}</p>
+            <p>{detectedLang}</p>
           </div>
+          <div>
           <Button 
             variant="ghost" 
             size="sm"
-            onClick={() => speakText(detectedLanguage)}
+            onClick={() => speakText(detectedLang)}
           >
             <Volume2 className="h-4 w-4" />
           </Button>
+          </div>
+          <div>
+            <h3 className="font-semibold">Target Language:</h3>
+            <p>{targetLanguage}</p>
+          </div>
+        </div>
+
+        {/* Raw Response Section */}
+        <div className="mt-4 border-t border-gray-700 pt-4">
+          <Button
+            variant="ghost"
+            className="w-full flex justify-between items-center"
+            onClick={() => setShowRawResponse(!showRawResponse)}
+          >
+            <span className="font-semibold">Raw Response</span>
+            {showRawResponse ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </Button>
+          {showRawResponse && (
+            <div className="mt-2 p-4 bg-gray-900 rounded-md">
+              <pre className="whitespace-pre-wrap text-sm overflow-x-auto font-mono">
+                {formatRawResponse()}
+              </pre>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => copyToClipboard(rawResponse)}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Raw Response
+              </Button>
+            </div>
+          )}
         </div>
         
         <div className="flex gap-2 mt-4">
           <Button
             variant="outline"
-            onClick={() => copyToClipboard(translatedText)}
+            onClick={() => copyToClipboard(displayText)}
           >
-            <Copy className="w-4 h-4 mr-2" />
-            Copy
+            <Copy className="h-4 w-4 mr-2" />
+            Copy Translation
           </Button>
           {navigator.share && (
             <Button
               variant="outline"
               onClick={shareTranslation}
             >
-              <Share className="w-4 h-4 mr-2" />
+              <Share className="h-4 w-4 mr-2" />
               Share
             </Button>
           )}

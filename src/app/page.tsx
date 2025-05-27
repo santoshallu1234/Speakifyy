@@ -8,23 +8,32 @@ import TranslationResult from "../components/translateresult"
 import Footer from "../components/footer"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
+import { useTranslation } from "@/lib/context"
 
 export default function Home() {
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [selectedLang, setSelectedLang] = useState<string>("")  // Add this state
+  const [selectedLang, setSelectedLang] = useState<string>("")
+  const { addToHistory } = useTranslation()
 
   const handleTranslate = async (text: string, lang: string) => {
     setIsLoading(true)
     setError(null)
     setResult(null)
-    setSelectedLang(lang)  // Store the selected language
+    setSelectedLang(lang)
 
     try {
       const response = await axios.get(`https://speakify-b8jdydwma-santoshallu1234s-projects.vercel.app/convert?text=${encodeURIComponent(text)}&lang=${lang}`)
-      console.log(response.data)
+      console.log('Translation response:', response.data) // Debug log
       setResult(response.data)
+      
+      // Add to history with all required fields
+      addToHistory({
+        original_text: text,
+        raw_response: response.data.raw_response,
+        detected_language: response.data.detected_language,
+      })
     } catch (error) {
       console.error("Error translating text:", error)
       if (axios.isAxiosError(error)) {
@@ -59,7 +68,7 @@ export default function Home() {
           {result && (
             <TranslationResult
               originalText={result.original_text}
-              translatedText={result.translated_text}
+              translatedText={result.raw_response}
               detectedLanguage={result.detected_language}
               rawResponse={result.raw_response}
               targetLanguage={selectedLang}  // Pass the stored language
@@ -71,6 +80,10 @@ export default function Home() {
     </div>
   )
 }
+
+
+
+
 
 
 
