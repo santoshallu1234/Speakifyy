@@ -34,7 +34,7 @@ export default function QuizSummary({
       return text;
     }
   };
-
+//vbnjmk
   // Calculate percentage score (assuming max score is 100)
   const maxScore = 100;
   const percentage = Math.round((score / maxScore) * 100);
